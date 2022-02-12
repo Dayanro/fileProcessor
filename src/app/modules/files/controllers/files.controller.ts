@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Post, Res, UseFilters } from '@nestjs/common';
+import { Controller, UseFilters } from '@nestjs/common';
 import { ReceiveFileDto } from '../dto/receive-file.dto';
 import { moduleConfig } from '../files.config';
 import { FilesService } from '../services/files.service';
@@ -17,6 +17,6 @@ export class FilesController {
     async loadFile(
         @Payload()receiveFileDto: ReceiveFileDto
         ):Promise<any>{
-         return await this.filesService.loadFile(receiveFileDto);
+         return await this.filesService.receive_file(receiveFileDto);
     }
 }
