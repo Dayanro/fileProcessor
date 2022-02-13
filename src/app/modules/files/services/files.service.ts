@@ -1,7 +1,12 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ReceiveFileDto } from '../dto/receive-file.dto';
 import * as debug from 'debug';
-import { fileIsValid, writeCSV } from 'src/shared/utils/csv.utils';
+import {
+  fileIsValid,
+  getFileInfo,
+  getFileData,
+  transformCSV,
+} from 'src/shared/utils/csv.utils';
 import { CustomException } from 'src/shared/exception/custom.exception';
 import {
   createDirectory,
@@ -16,6 +21,8 @@ import {
 } from 'src/shared/interface/notification.interface';
 import { moduleConfig } from '../files.config';
 import { FileInfoInterface } from 'src/shared/interface/fileInfo.interface';
+import { MetadataInterface } from 'src/shared/interface/metadata.interface';
+import { writeJson } from 'src/shared/utils/json.utils';
 const path = require('path');
 
 const log: debug.IDebugger = debug('fileprocessor:files:service');
@@ -27,20 +34,32 @@ export class FilesService {
   public async receive_file(receiveFile: ReceiveFileDto): Promise<any> {
     const { filename, filelocation } = receiveFile;
     const filepath = `${filelocation}/${filename}.csv`;
-    const isValidData = await fileIsValid(filepath);
-    if (!isValidData) {
-      throw new CustomException(400, ['Found null values in the file']);
-    }
     const id = uuidv4();
+    const isValidData = await fileIsValid(filepath);
+
     const date = new Date();
-    const fileInfo: FileInfoInterface = { id, filepath, date };
+    const fileInfo: FileInfoInterface = {
+      id,
+      filepath,
+      date,
+      isValidData,
+      filename,
+    };
     this.loadFile(fileInfo);
     return HttpStatus[200];
   }
 
   public async loadFile(fileInfo: FileInfoInterface) {
-    const dirName = 'work-bucket';
-    await this.moveFile(fileInfo, dirName);
+    const { isValidData } = fileInfo;
+    if (!isValidData) {
+      const notification: NotificationInterface = this.createNotification(
+        moduleConfig.enums.evenType.fileError,
+        fileInfo,
+      );
+    } else {
+      const dirName = moduleConfig.enums.fileNames.workBucket;
+      await this.moveFile(fileInfo, dirName);
+    }
     return HttpStatus[200];
   }
   public async openFile(id: string, dirName: string): Promise<string> {
@@ -75,29 +94,53 @@ export class FilesService {
   private async processesData(fileInfo: FileInfoInterface): Promise<any> {
     const startTs = Date.now();
     const newFileInfo: FileInfoInterface = { ...fileInfo, startTs };
-    const dirName = 'processed-data';
-    await this.writeFile(newFileInfo, dirName);
+    const dirName = moduleConfig.enums.fileNames.processedData;
+    await this.transformFile(newFileInfo, dirName);
   }
 
-  public async writeFile(fileInfo: FileInfoInterface, dirName: string) {
-    let { id, filepath, filename, destination } = fileInfo;
+  public async transformFile(fileInfo: FileInfoInterface, dirName: string) {
+    let { id, filepath, filename, destination, fileChanges } = fileInfo;
     const newPath: string = await this.openFile(id, dirName);
     const newFilepath = path.join(newPath, filename);
-    const newFileInfo: FileInfoInterface = await writeCSV(
+    const newFileInfo: FileInfoInterface = await transformCSV(
       destination,
       newFilepath,
     );
     filepath = newFileInfo.filepath;
     destination = newFileInfo.destination;
+    fileChanges = newFileInfo.fileChanges;
     const currentFileInfo: FileInfoInterface = {
       ...fileInfo,
       destination,
       filepath,
+      fileChanges,
     };
     const notification: NotificationInterface = this.createNotification(
       moduleConfig.enums.evenType.fileProcessed,
       currentFileInfo,
     );
+    const metadata: MetadataInterface = await this.getMetadata(currentFileInfo);
+  }
+
+  private async getMetadata(
+    fileInfo: FileInfoInterface,
+  ): Promise<MetadataInterface> {
+    const { id, destination, date, fileChanges } = fileInfo;
+    const dirName: string = moduleConfig.enums.fileNames.metadata;
+    const newPath: string = await this.openFile(id, dirName);
+    const { size, linesNumber, headerList } = await getFileData(destination);
+    const metadata: MetadataInterface = {
+      id,
+      startDate: date,
+      endDate: new Date(),
+      fileChanges,
+      headerList,
+      linesNumber,
+      size,
+    };
+
+    await writeJson(metadata, newPath, fileInfo);
+    return metadata;
   }
 
   private createNotification(
@@ -120,6 +163,9 @@ export class FilesService {
     if (eventType === moduleConfig.enums.evenType.fileProcessed) {
       notification.event_data.elapsed_time = Date.now() - startTs;
       delete notification.event_data.received_timestamp;
+    }
+    if (eventType === moduleConfig.enums.evenType.fileError) {
+      delete notification.event_data.moved_to;
     }
     log('Notification', notification);
     return notification;

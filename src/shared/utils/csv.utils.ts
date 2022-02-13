@@ -1,8 +1,13 @@
 const csv = require('csv-parser');
 const fs = require('fs');
 import * as debug from 'debug';
+import { moduleConfig } from 'src/app/modules/files/files.config';
 import { FileInfoInterface } from '../interface/fileInfo.interface';
-const es = require('event-stream');
+import {
+  FileChanges,
+  MetadataInterface,
+} from '../interface/metadata.interface';
+const stream = require('event-stream');
 
 const log: debug.IDebugger = debug('fileprocessor:csv:utils');
 
@@ -18,55 +23,48 @@ export async function parseCSV(filepath: any, option?: {}): Promise<any[]> {
   });
 }
 
-export async function modifyHeaders(
+export async function getFileData(
   filepath: string,
-  newFilepath: string,
-): Promise<any> {
-  const option = {
-    mapHeaders: ({ header }) => header.toUpperCase(),
-  };
-  const data = await writeCSV(filepath, newFilepath, option);
-  return data;
+): Promise<MetadataInterface> {
+  const stat: any = await getFileInfo(filepath);
+  const size = stat.size;
+  const data: any[] = await structureData(filepath);
+  const linesNumber: number = data.length + 1;
+  const headerList: string[] = Object.keys(data[0]);
+  return { size, linesNumber, headerList };
 }
 
-export async function writeCSV(
+export async function transformCSV(
   filepath: any,
   newFilepath: any,
-  option?: {},
 ): Promise<FileInfoInterface> {
   return new Promise<FileInfoInterface>((resolve, reject) => {
     let isHeader = true;
+    const fileChanges = [];
     const newCsv = fs.createWriteStream(newFilepath);
     fs.createReadStream(filepath)
-      .pipe(es.split(/(\r?\n)/))
+      .pipe(stream.split(/(\r?\n)/))
       .pipe(
-        es.mapSync(function (data) {
+        stream.mapSync(function (data) {
           if (isHeader) {
+            const oldValue = data.split(';');
             data = data.toUpperCase();
+            const newValue = data.split(';');
+            const setValues: FileChanges = {
+              type: moduleConfig.defaults.modificationsType.upperCase,
+              oldValue,
+              newValue,
+            };
+            fileChanges.push(setValues);
             isHeader = false;
           }
           newCsv.write(data);
         }),
       )
       .on('end', () => {
-        resolve({ filepath, destination: newFilepath });
+        resolve({ filepath, destination: newFilepath, fileChanges });
       });
   });
-}
-
-export async function getHeaderAndValues(
-  filepath: any,
-): Promise<{ heardersData: string[]; valuesData: string[] }> {
-  const heardersData: string[] = [];
-  const valuesData: string[] = [];
-  const option = {
-    mapValues: ({ header, index, values }) => {
-      heardersData.push(header);
-      valuesData.push(values);
-    },
-  };
-  parseCSV(filepath, option);
-  return { heardersData, valuesData };
 }
 
 export async function fileIsValid(filepath: string): Promise<boolean> {
@@ -105,35 +103,14 @@ export async function readCSV(filepath: string): Promise<any> {
   });
 }
 
-// const createCsvWriter = csv_writer.createObjectCsvWriter;
-// const {heardersData,valuesData} = await getHeaderAndValues(filepath)
-// const csvWriter = createCsvWriter({
-//     path: filepath,
-//     header: heardersData
-//   });
-//   csvWriter
-//     .writeRecords(valuesData)
-//     .then(()=> console.log('The CSV file was written successfully'));
-
-// const createCsvWriter = csv_writer.createObjectCsvWriter;
-// const {heardersData,valuesData} = await getHeaderAndValues(filepath)
-// const csvWriter = createCsvWriter({
-//     path: filepath,
-//     header: heardersData
-//   });
-//   csvWriter
-//     .writeRecords(valuesData)
-//     .then(()=> console.log('The CSV file was written successfully'));
-// return new Promise<string>((resolve, reject) => {
-//     fs.writeFile(
-//         filepath,
-//         data,
-//         (error: NodeJS.ErrnoException | null, data: Buffer) => {
-//             if (error) {
-//                 reject(error);
-//             } else {
-//                 resolve(data.toString());
-//             }
-//         },
-//     );
-// });
+export async function getFileInfo(filepath: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    fs.stat(filepath, (error, stats) => {
+      if (error) {
+        console.log(error);
+      } else {
+        resolve(stats);
+      }
+    });
+  });
+}
