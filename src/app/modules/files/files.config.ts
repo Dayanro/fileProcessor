@@ -3,15 +3,15 @@ export const moduleConfig = {
 
   enums: {
     evenType: {
-      fileRecived: "FILERECEIVED",
-      fileProcessed: "FILEPROCESSED",
-      fileError: "FILEERROR",
+      fileRecived: 'FILERECEIVED',
+      fileProcessed: 'FILEPROCESSED',
+      fileError: 'FILEERROR',
     },
   },
 
   api: {
-    route: "file",
-    param: "file",
-    bodyParams: ["file"],
+    route: 'file',
+    param: 'file',
+    bodyParams: ['file'],
   },
 };

@@ -1,10 +1,10 @@
-import { ErrorInterface } from "../interface/error.interface";
-import { HttpException, HttpStatus } from "@nestjs/common";
-import * as debug from "debug";
-import { RpcException } from "@nestjs/microservices";
+import { ErrorInterface } from '../interface/error.interface';
+import { HttpException, HttpStatus } from '@nestjs/common';
+import * as debug from 'debug';
+import { RpcException } from '@nestjs/microservices';
 
 // Set debug
-const log: debug.IDebugger = debug("FileProccesor:exceptions");
+const log: debug.IDebugger = debug('FileProccesor:exceptions');
 
 export class CustomException extends RpcException {
   constructor(exception: number, values: string[] = []) {
