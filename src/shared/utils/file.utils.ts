@@ -22,7 +22,6 @@ export async function createDirectory(path: string): Promise<boolean> {
           if (error) {
             reject(error);
           }
-          //throw new CustomException(400, ['The directory could not be created']); }
           else {
             log('New Directory created successfully!');
             resolve(true);
