@@ -1,4 +1,4 @@
 export interface ReceiveFileInterface {
-    filename: string;
-    filelocation: string;
+  filename: string;
+  filelocation: string;
 }

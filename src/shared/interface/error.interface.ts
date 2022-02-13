@@ -1,6 +1,5 @@
 export interface ErrorInterface {
-    status: string;
-    values: string[];
-    statusCode?: number;
-  }
-  
+  status: string;
+  values: string[];
+  statusCode?: number;
+}
