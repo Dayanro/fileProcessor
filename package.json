@@ -30,6 +30,7 @@
     "class-validator": "^0.13.2",
     "csv-parser": "^3.0.0",
     "debug": "^4.3.3",
+    "event-stream": "^4.0.1",
     "node-csv": "^0.1.2",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
