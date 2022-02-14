@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, forwardRef } from '@nestjs/common';
 import { ReceiveFileDto } from '../dto/receive-file.dto';
 import * as debug from 'debug';
 import {
@@ -7,7 +7,6 @@ import {
   getFileData,
   transformCSV,
 } from 'src/shared/utils/csv.utils';
-import { CustomException } from 'src/shared/exception/custom.exception';
 import {
   createDirectory,
   createPath,
@@ -23,13 +22,19 @@ import { moduleConfig } from '../files.config';
 import { FileInfoInterface } from 'src/shared/interface/fileInfo.interface';
 import { MetadataInterface } from 'src/shared/interface/metadata.interface';
 import { writeJson } from 'src/shared/utils/json.utils';
+import { ClientProxy } from '@nestjs/microservices';
+import { AppService } from 'src/app.service';
 const path = require('path');
 
 const log: debug.IDebugger = debug('fileprocessor:files:service');
 
 @Injectable()
 export class FilesService {
-  constructor(private configService: ConfigService) {}
+  constructor(
+    @Inject(forwardRef(() => AppService))
+    protected readonly appService: AppService,
+   private configService: ConfigService
+  ) {}
 
   public async receive_file(receiveFile: ReceiveFileDto): Promise<any> {
     const { filename, filelocation } = receiveFile;
@@ -52,7 +57,7 @@ export class FilesService {
   public async loadFile(fileInfo: FileInfoInterface) {
     const { isValidData } = fileInfo;
     if (!isValidData) {
-      const notification: NotificationInterface = this.createNotification(
+      this.appService.createNotification(
         moduleConfig.enums.evenType.fileError,
         fileInfo,
       );
@@ -84,7 +89,7 @@ export class FilesService {
       destination,
       filename,
     };
-    const notification: NotificationInterface = this.createNotification(
+   this.appService.createNotification(
       moduleConfig.enums.evenType.fileRecived,
       currentFileInfo,
     );
@@ -115,7 +120,7 @@ export class FilesService {
       filepath,
       fileChanges,
     };
-    const notification: NotificationInterface = this.createNotification(
+    this.appService.createNotification(
       moduleConfig.enums.evenType.fileProcessed,
       currentFileInfo,
     );
@@ -141,33 +146,5 @@ export class FilesService {
 
     await writeJson(metadata, newPath, fileInfo);
     return metadata;
-  }
-
-  private createNotification(
-    eventType: string,
-    fileInfo: FileInfoInterface,
-  ): NotificationInterface {
-    const { id, date, destination, filename, filepath, startTs } = fileInfo;
-    const eventData: EventData = {
-      filename,
-      filepath,
-      moved_to: destination,
-      received_timestamp: date,
-    };
-    const notification: NotificationInterface = {
-      UUID: id,
-      date: new Date(),
-      event_type: eventType,
-      event_data: eventData,
-    };
-    if (eventType === moduleConfig.enums.evenType.fileProcessed) {
-      notification.event_data.elapsed_time = Date.now() - startTs;
-      delete notification.event_data.received_timestamp;
-    }
-    if (eventType === moduleConfig.enums.evenType.fileError) {
-      delete notification.event_data.moved_to;
-    }
-    log('Notification', notification);
-    return notification;
   }
 }
