@@ -16,6 +16,6 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe());
   app.useGlobalFilters(new ExceptionFilter());
   await app.listen();
-  logger.log(`Application listening on port ${8877}`);
+  logger.log(`Microservice listening on port ${8877}`);
 }
 bootstrap();
