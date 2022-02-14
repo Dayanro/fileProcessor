@@ -4,7 +4,6 @@ import { moduleConfig } from './app/modules/files/files.config';
 import { FileInfoInterface } from './shared/interface/fileInfo.interface';
 import { EventData, NotificationInterface } from './shared/interface/notification.interface';
 import * as debug from 'debug';
-import { Observable } from 'rxjs';
 
 const log: debug.IDebugger = debug('fileprocessor:app:service');
 @Injectable()
@@ -19,7 +18,6 @@ export class AppService {
     eventType: string,
     fileInfo: FileInfoInterface,
   ):void{
-    //Observable<string>{
     const { id, date, destination, filename, filepath, startTs } = fileInfo;
     const eventData: EventData = {
       filename,
@@ -40,10 +38,7 @@ export class AppService {
     if (eventType === moduleConfig.enums.evenType.fileError) {
       delete notification.event_data.moved_to;
     }
-    log('Notification', notification);
     this.client.send({ cmd: 'create-notification' }, notification)
-    .subscribe(result => console.log(result));
-    
-    //returns "ok"
+    .subscribe(result => log(result));
   }
 }
